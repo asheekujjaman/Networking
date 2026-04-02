@@ -1,0 +1,49 @@
+============Basic Configuration of Cisco Router=======
+enable
+configure terminal
+hostname R1
+
+enable secret ashik
+service password-encryption
+line console 0
+password consolepass
+login
+exec-timeout 10 0
+exit
+line vty 0 4
+password telnetpass
+login
+exit
+
+interface FastEthernet0/0
+description WAN_CONNECTION
+ip address 192.168.1.1 255.255.255.0
+no shutdown
+exit
+end
+write memory
+
+============Switch Basic Configuraton=======
+enable
+configure terminal
+hostname SW1
+enable secret ashik
+
+line console 0
+password console
+login
+exit
+
+line vty 0 4
+password telnet
+login
+exit
+
+interface vlan 1
+ip address 192.168.1.10 255.255.255.0
+no shutdown
+exit
+
+ip default-gateway 192.168.1.1
+end
+write memory
