@@ -1,0 +1,55 @@
+#Basic Settings:
+enable
+configure terminal
+hostname [Switch_Name]
+no ip domain-lookup
+enable secret [Password]
+service password-encryption
+
+
+#Secure Access:
+line con 0
+password [Password]
+login #(login local =>for locol user login)
+exit
+line vty 0 15
+password [Password]
+login #(login local =>for locol user login)
+transport input ssh
+exit
+
+#Create a Local User
+configure terminal
+username admin secret Admin@123
+#Assign Privilege Level (Optional but Recommended)
+username admin privilege 15 secret Admin@123
+
+
+#Management VLAN/IP:
+interface vlan 1
+ip address [IP_Address] [Subnet_Mask]
+no shutdown
+exit
+ip default-gateway [Gateway_IP]
+
+#VLAN Creation:
+vlan [VLAN_ID]
+name [VLAN_Name]
+exit
+
+#Port Configuration (Access):
+interface range [Type] [Interfaces]
+switchport mode access
+switchport access vlan [VLAN_ID]
+spanning-tree portfast
+no shutdown
+Port Configuration (Trunk/Uplink):
+interface [Interface_ID]
+switchport mode trunk
+switchport trunk allowed vlan [VLAN_IDs]
+
+
+
+
+#Save Configuration
+write memory
