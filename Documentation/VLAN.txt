@@ -1,0 +1,46 @@
+VLAN, Inter-VLAN Routing, and Management VLAN Presentation
+
+1.  VLAN Overview VLAN (Virtual Local Area Network) is used to divide a
+    physical network into multiple logical networks. It improves
+    security, performance, and network management.
+
+2.  Types of VLANs
+-   Data VLAN: Used for user data traffic
+-   Voice VLAN: Used for VoIP traffic
+-   Management VLAN: Used for managing network devices
+-   Native VLAN: Default VLAN for trunk ports
+
+3.  Layer 2 Switch
+-   Operates at OSI Layer 2 (Data Link Layer)
+-   Uses MAC addresses to forward frames
+-   Supports VLANs but cannot perform routing between VLANs
+
+4.  Layer 3 Switch
+-   Operates at OSI Layer 3 (Network Layer)
+-   Can perform routing functions
+-   Supports Inter-VLAN routing
+
+5.  Inter-VLAN Routing Inter-VLAN routing allows communication between
+    devices in different VLANs. Requires a Layer 3 device such as a
+    router or Layer 3 switch.
+
+6.  Inter-VLAN Routing Methods
+-   Router-on-a-Stick: Uses a single router interface with subinterfaces
+-   Layer 3 Switch (SVI): Uses Switch Virtual Interfaces for routing
+		SVI Configuration Example (Cisco) 
+		interface vlan 10 
+		ip address    192.168.10.1 255.255.255.0 no shutdown
+
+8.  Management VLAN
+-   Used to remotely manage switches and network devices
+-   Supports protocols like SSH, Telnet, SNMP
+-   Example: VLAN 99 used as management VLAN
+
+9.  Difference Between Layer 2 and Layer 3 Switch 
+Layer 2 Switch:Only switching, No routing capability
+Layer 3 Switch: - Switching + Routing - Supports Inter-VLAN routing
+
+10. Benefits of VLAN
+-   Improved security
+-   Better performance
+-   Reduced broadcast domains
