@@ -6,6 +6,13 @@ no ip domain-lookup
 enable secret [Password]
 service password-encryption
 
+#SSH Configure
+change hostname
+ip domain name hostname+domanin
+crypto key generate rsa (ganarate key )
+line vty 0 4 
+transport input ssh
+
 
 #Secure Access:
 line con 0
