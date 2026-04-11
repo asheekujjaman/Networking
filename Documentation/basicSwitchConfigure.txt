@@ -56,6 +56,20 @@ switchport mode trunk
 switchport trunk allowed vlan [VLAN_IDs]
 
 
+Log Server:
+-----------------
+logging host 192.168.1.12 (log server)
+logging trap 7 (or other which you want to sent log server)
+
+
+
+DHCP Snopping 
+-----------------
+ip dhcp snooping
+ip dhcp snooping vlan 1
+interface fastetharnet 0/1 (interface which is connected to dhcp server and allow that vlan 1 or you use)
+ip dhcp snooping trust
+
 
 SNMP Version 1 Configure:
 --------------------------
@@ -75,6 +89,7 @@ snmp-server group SNMPv3-GROUP v3 priv (SNMPv3-GROUP=group name)
 snmp-server user snmpuser SNMPv3-GROUP v3 auth sha AuthPass123 priv aes 128 PrivPass123
 snmp-server host 192.168.1.100 version 3 priv snmpuser
 snmp-server enable traps
+
 
 #Save Configuration
 write memory
