@@ -57,6 +57,24 @@ switchport trunk allowed vlan [VLAN_IDs]
 
 
 
+SNMP Version 1 Configure:
+--------------------------
+snmp-server community public RW (public=community name)
+snmp-server enable traps
+snmp-server host 192.168.1.100 version 1 public
+
+SNMP Version 2c Configure:
+--------------------------
+snmp-server community public RW (public=community name)
+snmp-server enable traps
+snmp-server host 192.168.1.100 version 2c public
+
+SNMP Version 3 Configure:
+--------------------------
+snmp-server group SNMPv3-GROUP v3 priv (SNMPv3-GROUP=group name)
+snmp-server user snmpuser SNMPv3-GROUP v3 auth sha AuthPass123 priv aes 128 PrivPass123
+snmp-server host 192.168.1.100 version 3 priv snmpuser
+snmp-server enable traps
 
 #Save Configuration
 write memory
