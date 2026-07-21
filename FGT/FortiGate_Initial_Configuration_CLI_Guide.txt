@@ -1,0 +1,89 @@
+FortiGate Initial Configuration (Console CLI)
+
+Assumptions
+- WAN: x1
+- LAN: port1
+
+1. Remove x1 from Aggregation (example fortilink)
+-----------------------------------------------
+show system interface
+
+config system interface
+    edit "fortilink"
+        set member "x2"
+    next
+end
+
+2. Configure x1 Static IP
+-------------------------
+config system interface
+    edit "x1"
+        set mode static
+        set ip 203.0.113.10 255.255.255.248
+        set allowaccess ping https ssh
+        set role wan
+    next
+end
+
+3. Configure LAN (port1)
+------------------------
+config system interface
+    edit "port1"
+        set ip 192.168.10.1 255.255.255.0
+        set allowaccess ping https ssh
+        set role lan
+    next
+end
+
+4. Configure Default Route
+--------------------------
+config router static
+    edit 1
+        set device "x1"
+        set gateway 203.0.113.9
+    next
+end
+
+5. Configure DNS
+----------------
+config system dns
+    set primary 8.8.8.8
+    set secondary 1.1.1.1
+end
+
+6. Configure DHCP on LAN
+------------------------
+config system dhcp server
+    edit 1
+        set interface "port1"
+        set default-gateway 192.168.10.1
+        set netmask 255.255.255.0
+        set dns-service default
+        config ip-range
+            edit 1
+                set start-ip 192.168.10.100
+                set end-ip 192.168.10.200
+            next
+        end
+    next
+end
+
+7. Verify Internet
+------------------
+execute ping 8.8.8.8
+execute ping google.com
+get router info routing-table all
+
+8. First-time Web GUI Tasks
+---------------------------
+- Change admin password
+- Set hostname
+- Set timezone and NTP
+- Register FortiCare
+- Update FortiGuard
+- Configure Firewall Policy: port1 -> x1 (NAT enabled)
+- Backup configuration
+- Create second administrator
+- Disable HTTP management if not required
+- Configure Trusted Hosts for admin
+- Enable logging
