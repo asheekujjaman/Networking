@@ -1,0 +1,363 @@
+====================================================================
+ CISCO RADIUS AUTHENTICATION WITH WINDOWS NPS
+ Reference Configuration & Deployment Guide
+====================================================================
+
+Integrating a Cisco IOS device with Microsoft Network Policy Server
+(NPS) for centralized RADIUS authentication, authorization, and
+privilege-level assignment.
+
+
+--------------------------------------------------------------------
+1. OVERVIEW
+--------------------------------------------------------------------
+This document describes a complete reference configuration for
+integrating a Cisco router or switch with Microsoft Network Policy
+Server (NPS) acting as a RADIUS server. It covers environment
+details, server- and device-side configuration, authentication
+method selection, troubleshooting, and privilege-level assignment
+via RADIUS attributes.
+
+
+--------------------------------------------------------------------
+2. ENVIRONMENT SUMMARY
+--------------------------------------------------------------------
+
+2.1 RADIUS / NPS Server (Windows Server)
+    ------------------------------------
+    IP Address   : 192.168.100.10
+    Hostname     : srv22tt.test.local
+    Service      : Network Policy Server (NPS)
+    Status       : Running
+    User Group   : nspGroup  (members: u1, u2)
+
+    NOTE: The Windows Server is assumed to already be running
+    AD DS and the Network Policy Server role, with the required
+    users and group already created. If not, complete that setup
+    before proceeding.
+
+2.2 Cisco Network Access Server (NAS)
+    ----------------------------------
+    IP Address                 : 192.168.100.132
+    RADIUS Authentication Port : UDP 1645
+    RADIUS Accounting Port     : UDP 1646
+
+2.3 NPS RADIUS Client Entry
+    ------------------------
+    Friendly Name : c1
+    IP Address    : 192.168.100.132
+
+2.4 Observed Authentication Event
+    -------------------------------
+    User                     : u1
+    Authentication Type      : PAP
+    Authentication Provider  : Windows
+
+
+--------------------------------------------------------------------
+3. RADIUS PORT CONFIGURATION
+--------------------------------------------------------------------
+NPS listens on both the legacy Cisco/RFC-2138 ports and the modern
+standard RADIUS ports:
+
+    Port         Purpose
+    ----         -------
+    1645 / UDP   Authentication (legacy)
+    1646 / UDP   Accounting (legacy)
+    1812 / UDP   Authentication (standard)
+    1813 / UDP   Accounting (standard)
+
+3.1 Windows Firewall Rules
+    ------------------------
+    Allow the required ports on the RADIUS server's Windows
+    Firewall (or disable the firewall in lab environments only).
+
+    Legacy ports (1645 / 1646):
+
+        New-NetFirewallRule -DisplayName "RADIUS Authentication 1645" -Direction Inbound -Protocol UDP -LocalPort 1645 -Action Allow
+        New-NetFirewallRule -DisplayName "RADIUS Accounting 1646" -Direction Inbound -Protocol UDP -LocalPort 1646 -Action Allow
+
+    Standard ports (1812 / 1813):
+
+        New-NetFirewallRule -DisplayName "RADIUS Authentication 1812" -Direction Inbound -Protocol UDP -LocalPort 1812 -Action Allow
+        New-NetFirewallRule -DisplayName "RADIUS Accounting 1813" -Direction Inbound -Protocol UDP -LocalPort 1813 -Action Allow
+
+
+--------------------------------------------------------------------
+4. NPS SERVICE & PORT VERIFICATION
+--------------------------------------------------------------------
+
+4.1 Verify the NPS Service
+    ------------------------
+    Run on the Windows NPS server:
+
+        Get-Service IAS
+
+    Expected output:
+
+        Status   Name   DisplayName
+        Running  IAS    Network Policy Server
+
+4.2 Verify Listening RADIUS Ports
+    -------------------------------
+    Run:
+
+        Get-NetUDPEndpoint | Where-Object {$_.LocalPort -in 1645,1646,1812,1813}
+
+    Expected ports: 1645, 1646, 1812, 1813.
+    In this environment, NPS was confirmed to be listening on all
+    four ports.
+
+
+--------------------------------------------------------------------
+5. CONFIGURE THE CISCO DEVICE AS AN NPS RADIUS CLIENT
+--------------------------------------------------------------------
+On the Windows Server, navigate to:
+
+    Server Manager -> Tools -> Network Policy Server -> NPS ->
+    RADIUS Clients and Servers -> RADIUS Clients -> New
+
+Create the RADIUS client with the following values:
+
+    Field           Value
+    -----           -----
+    Friendly Name   C1
+    Address (IP)    192.168.100.132
+    Shared Secret   <same secret configured on the Cisco device>
+
+    IMPORTANT: The Cisco NAS / RADIUS client address must match
+    192.168.100.132 exactly.
+
+
+--------------------------------------------------------------------
+6. ROUTER OR SWITCH CONFIGURATION
+--------------------------------------------------------------------
+
+6.1 Cisco RADIUS Server Configuration
+    -----------------------------------
+    Example configuration using the legacy 1645/1646 ports.
+
+    Switch:
+
+        configure terminal
+        radius-server host 192.168.100.10 key YOUR_SHARED_SECRET
+        end
+
+    Router:
+
+        radius server srv22tt_RadiousServer
+        address ipv4 192.168.1.1
+        key YOUR_SHARED_SECRET
+
+    Verify:
+
+        show running-config | section radius
+
+    NOTE: The shared secret must exactly match the secret
+    configured for the Cisco RADIUS client in NPS.
+
+6.2 Cisco AAA Configuration
+    -------------------------
+    Recommended baseline AAA configuration:
+
+        aaa new-model
+        aaa authentication login default group radius local
+        aaa authorization exec default group radius local
+
+    - aaa new-model
+        Enables AAA services on the device.
+    - aaa authentication login default
+        Controls who can log in; RADIUS is tried first, then the
+        local database.
+    - aaa authorization exec default
+        Controls what an authenticated user can do (privilege/exec
+        authorization); RADIUS is tried first, then local.
+
+    Create a local emergency administrator account so
+    administrators are not locked out if RADIUS becomes
+    unavailable:
+
+        username admin privilege 15 secret YOUR_LOCAL_PASSWORD
+
+
+--------------------------------------------------------------------
+7. NPS POLICY CONFIGURATION
+--------------------------------------------------------------------
+
+7.1 Connection Request Policy
+    ---------------------------
+    This step can be skipped if the default policy is not being
+    modified. In NPS:
+
+        Connection Request Policies -> Use Windows authentication
+        for all users
+
+    A specific host can optionally be specified to restrict which
+    requests are authenticated.
+
+7.2 Network Policy
+    ----------------
+    Create a network policy named "allforswitch". The policy
+    should match the intended users or groups - add the user group
+    or individual user as needed.
+
+    RECOMMENDATION: Use Active Directory security groups rather
+    than creating a separate policy for every individual user.
+
+    Example groups:
+        - TEST\Cisco-Level1
+        - TEST\Cisco-Level2
+        - TEST\Cisco-Admins
+
+
+--------------------------------------------------------------------
+8. ENABLE PAP FOR CISCO ADMINISTRATIVE LOGIN
+--------------------------------------------------------------------
+PAP must be enabled because the Cisco device authenticates using
+PAP by default. If PAP is not enabled on the matching network
+policy, the following error appears in the Windows Server Event
+Viewer (NPS Event ID 6273):
+
+    Reason Code : 66
+    Reason      : The user attempted to use an authentication
+                  method that is not enabled on the matching
+                  network policy.
+
+The Cisco request in this environment was identified by NPS as:
+
+        Authentication Type: PAP
+
+Steps to enable PAP:
+
+        Policies -> Network Policies -> allforswitch -> Properties
+        -> Constraints -> Authentication Methods
+
+Enable the following option and apply the change:
+
+    - Microsoft: Unencrypted authentication (PAP, SPAP)
+
+    SECURITY NOTE: Use PAP only when appropriate for the network
+    and security design. RADIUS PAP protects the password using
+    the RADIUS shared-secret mechanism between the NAS and the
+    RADIUS server, but this is not equivalent to an encrypted
+    end-to-end management session.
+
+
+--------------------------------------------------------------------
+9. USEFUL CISCO COMMANDS & DEBUGGING
+--------------------------------------------------------------------
+
+9.1 Verification Commands
+    -----------------------
+        show running-config | section aaa
+        show running-config | section radius
+        show ip interface brief
+        show ip route 192.168.100.10
+        ping 192.168.100.10
+
+9.2 RADIUS Debugging
+    ------------------
+        debug radius
+        debug radius authentication
+
+    After testing, always disable debugging:
+
+        undebug all
+
+
+--------------------------------------------------------------------
+10. CONFIGURING CUSTOM PRIVILEGE LEVELS
+--------------------------------------------------------------------
+
+10.1 Define a Custom Privilege Level on the Cisco Device
+     -----------------------------------------------------
+     Example: defining privilege level 2 and assigning specific
+     commands to it.
+
+        c1(config)#privilege exec level 2 show
+        c1(config)#privilege exec level 2 show running-config
+
+     Add every command that the specific privilege level should be
+     permitted to run.
+
+10.2 Assign Cisco Privilege Level 2 to User u2
+     --------------------------------------------
+     Goal: authenticate user u2 at Cisco privilege level 2 via
+     RADIUS.
+
+     Recommended method: use an Active Directory group combined
+     with an NPS Network Policy.
+
+        1. Create an AD group: TEST\Cisco-Level2.
+        2. Add user u2 to that group.
+        3. Create (or use) an NPS Network Policy specifically for
+           the Level 2 group.
+
+     Policy settings:
+
+        Policy Name    : Cisco - Level 2
+        Condition      : Windows Group = TEST\Cisco-Level2
+        Authentication : PAP enabled
+
+10.3 Configure the Cisco Vendor-Specific Attribute in NPS
+     -------------------------------------------------------
+     In the Level 2 NPS Network Policy, navigate to:
+
+        Network Policy -> Settings -> RADIUS Attributes ->
+        Vendor Specific -> Add
+
+     Configure the Cisco Vendor-Specific Attribute (VSA):
+
+        Vendor    : Cisco
+        Attribute : Cisco-AVPair
+        Value     : shell:priv-lvl=2
+
+     This attribute instructs the Cisco device to place the
+     authenticated user at privilege level 2 upon login.
+
+10.4 Confirm Exec Authorization Is Enabled
+     ----------------------------------------
+     Authentication and authorization are separate functions:
+     authentication confirms the username and password are valid,
+     while authorization determines the access or privilege level
+     granted. Without exec authorization, a user may authenticate
+     successfully but not receive the RADIUS-assigned privilege
+     level. Confirm the Cisco device has:
+
+        aaa authorization exec default group radius local
+
+10.5 Verify User Privilege Level
+     -------------------------------
+     Log in to the Cisco device as user u2 with the domain
+     password, then run:
+
+        show privilege
+
+     Expected result: Current privilege level is 2.
+
+10.6 Recommended AD / NPS Privilege Design
+     ------------------------------------------
+     For simplified administration, map AD groups directly to
+     Cisco privilege levels. Access can then be changed simply by
+     updating a user's AD group membership.
+
+        Active Directory Group      Cisco VSA Value
+        ----------------------      -----------------
+        TEST\Cisco-Level1           shell:priv-lvl=1
+        TEST\Cisco-Level2           shell:priv-lvl=2
+        TEST\Cisco-Admins           shell:priv-lvl=15
+
+10.7 Cisco Privilege Level Reference
+     --------------------------------
+     Cisco IOS supports privilege levels 0 through 15:
+
+        Level    Description
+        -----    -----------
+        0        Very limited command set
+        1        User EXEC (default level)
+        2-14     Custom privilege levels (administrator-defined)
+        15       Privileged EXEC (full administrative access)
+
+====================================================================
+ END OF DOCUMENT
+====================================================================
